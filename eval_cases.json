@@ -1,0 +1,30 @@
+[
+  {
+    "question": "Why does PostgreSQL avoid read locks?",
+    "expected_route": "single",
+    "expected_targets": ["postgres"],
+    "should_answer": true,
+    "expected_source_docs": ["db_postgres"]
+  },
+  {
+    "question": "Compare PostgreSQL MVCC with SQL Server snapshot isolation.",
+    "expected_route": "multi",
+    "expected_targets": ["postgres", "sqlserver"],
+    "should_answer": true,
+    "expected_source_docs": ["db_postgres", "db_sqlserver"]
+  },
+  {
+    "question": "How does MVCC work?",
+    "expected_route": "unknown",
+    "expected_targets": [],
+    "should_answer": false,
+    "expected_source_docs": []
+  },
+  {
+    "question": "Compare PostgreSQL and MySQL MVCC.",
+    "expected_route": "unknown",
+    "expected_targets": [],
+    "should_answer": false,
+    "expected_source_docs": []
+  }
+]
