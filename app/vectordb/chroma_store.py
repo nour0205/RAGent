@@ -49,21 +49,32 @@ class ChromaStore:
 
         return rows
     
-    def query_full(self, query_embedding, k: int = 4, where: dict | None = None):
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=k,
-            where=where
-        )
+def query_full(self, query_embedding, k: int = 4, where: dict | None = None):
+    results = self.collection.query(
+        query_embeddings=[query_embedding],
+        n_results=k,
+        where=where,
+        include=["documents", "metadatas", "distances"]
+    )
 
-        documents = results.get("documents", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
+    documents = results.get("documents", [[]])[0]
+    metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+    ids = results.get("ids", [[]])[0] if "ids" in results else [None] * len(documents)
 
-        items = []
-        for doc, meta in zip(documents, metadatas):
-            items.append({
-                "text": doc,
-                "metadata": meta or {}
-            })
+    items = []
+    for i in range(len(documents)):
+        meta = metadatas[i] or {}
+        chunk_id = ids[i] or meta.get("chunk_id")
 
-        return items
+        items.append({
+            "id": chunk_id,
+            "chunk_id": chunk_id,
+            "text": documents[i],
+            "metadata": meta,
+            "score": float(distances[i]),
+            "rank": i + 1,
+            "retrieval_type": "vector",
+        })
+
+    return items

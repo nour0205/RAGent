@@ -17,6 +17,7 @@ from app.orchestration.registry import DOC_REGISTRY
 from app.orchestration.retrieval import retrieve_for_document
 from app.orchestration.prompts import build_compare_prompt
 from app.orchestration.planner import plan_question
+from app.orchestration.retrieval import normalize_document_id
 
 
 # -------------------------------------------------------------------
@@ -306,22 +307,27 @@ def ask_routed(req: QuestionRequest):
         }
 
     # ---------- SINGLE DOCUMENT ----------
+        # ---------- SINGLE DOCUMENT ----------
     if decision["route"] == "single":
         if req.document_id:
-            where = {"document_id": req.document_id}
-            if req.owner:
-                where["owner"] = req.owner
+            target = normalize_document_id(req.document_id)
         elif len(decision["targets"]) == 1:
-            target = decision["targets"][0]
-            where = {"document_id": target}
-            if req.owner:
-                where["owner"] = req.owner
+            target = normalize_document_id(decision["targets"][0])
         else:
             return {
                 "answer": "I don't know.",
                 "route": "single",
                 "sources": []
             }
+
+        where = {"document_id": target}
+        if req.owner:
+            where["owner"] = req.owner
+
+        print("\n[DEBUG] single route")
+        print("  raw target :", req.document_id if req.document_id else decision["targets"][0])
+        print("  final target:", target)
+        print("  where      :", where)
 
         result = rag_answer_with_sources(
             question=req.question,

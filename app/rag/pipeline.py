@@ -4,11 +4,7 @@ from app.llm.client import chat
 from app.rag.hybrid_retriever import hybrid_retrieve
 
 
-
-
-
 def build_rag_prompt(question: str, contexts: list[str]) -> list[dict]:
-    # Label contexts so the model can cite them.
     context_block = "\n\n".join(
         [f"[{i+1}] {ctx}" for i, ctx in enumerate(contexts)]
     )
@@ -27,11 +23,6 @@ def build_rag_prompt(question: str, contexts: list[str]) -> list[dict]:
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-
-
-
-
-
 
 
 STOPWORDS = {
@@ -54,7 +45,6 @@ def keyword_overlap_score(question: str, chunk: str) -> float:
 
     overlap = sum(1 for token in q_tokens if token in c_tokens)
 
-    # bonus if the full important phrase appears
     phrase_bonus = 0.0
     lowered_q = question.lower().strip(" ?.")
     lowered_c = chunk.lower()
@@ -68,49 +58,58 @@ def rerank_items(question: str, items: list[dict], k: int = 4) -> list[dict]:
     scored = []
 
     for original_rank, item in enumerate(items):
-        text = item.get("text") or item.get("document") or ""
+        text = (item.get("text") or item.get("document") or "").strip()
+        if not text:
+            continue
+
         lexical_score = keyword_overlap_score(question, text)
-
-        # small bonus for earlier vector retrieval rank
         rank_bonus = max(0.0, 1.0 - (original_rank * 0.05))
-
         final_score = lexical_score + rank_bonus
 
-        scored.append((final_score, item))
+        item_copy = dict(item)
+        item_copy["rerank_score"] = final_score
+        scored.append((final_score, item_copy))
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored[:k]]
 
 
-
-def rag_answer_with_store(question: str, store, k: int = 4, where: dict | None = None, retrieve_k: int = 10) -> str:
+def rag_answer_with_store(
+    question: str,
+    store,
+    k: int = 4,
+    where: dict | None = None,
+    retrieve_k: int = 10
+) -> str:
     candidates = hybrid_retrieve(
         store=store,
         question=question,
         k=retrieve_k,
         where=where
     )
-    
+
     items = rerank_items(question, candidates, k=k)
 
-    contexts = [
-    item.get("text") or item.get("document") or ""
-    for item in items
-]
+    contexts = []
+    for item in items:
+        text = (item.get("text") or item.get("document") or "").strip()
+        if text:
+            contexts.append(text)
 
-   
+    if not contexts:
+        return "I don't know."
 
     messages = build_rag_prompt(question, contexts)
     return chat(messages)
 
 
-
-from app.embeddings.embedder import embed_texts
-from app.llm.client import chat
-
-
-
-def rag_answer_with_sources(question: str, store, k: int = 4, where: dict | None = None, retrieve_k: int = 10):
+def rag_answer_with_sources(
+    question: str,
+    store,
+    k: int = 4,
+    where: dict | None = None,
+    retrieve_k: int = 10
+):
     candidates = hybrid_retrieve(
         store=store,
         question=question,
@@ -119,23 +118,43 @@ def rag_answer_with_sources(question: str, store, k: int = 4, where: dict | None
     )
 
     items = rerank_items(question, candidates, k=k)
-   
-    contexts = [
-    item.get("text") or item.get("document") or ""
-    for item in items
-]
+
+    contexts = []
+    cleaned_items = []
+
+    for item in items:
+        text = (item.get("text") or item.get("document") or "").strip()
+        if text:
+            item_copy = dict(item)
+            item_copy["text"] = text
+            cleaned_items.append(item_copy)
+            contexts.append(text)
+
+    if not contexts:
+        return {
+            "answer": "I don't know.",
+            "sources": []
+        }
+
     messages = build_rag_prompt(question, contexts)
     answer = chat(messages)
 
+    if answer.strip() == "I don't know.":
+        return {
+            "answer": answer,
+            "sources": []
+        }
+
     sources = []
-    for item in items:
-        meta = item["metadata"] or {}
+    for item in cleaned_items:
+        meta = item.get("metadata") or {}
         sources.append({
             "document_id": meta.get("document_id", "unknown"),
             "chunk_index": meta.get("chunk_index"),
-            "text": item.get("text") or item.get("document") or "",
+            "text": item["text"],
             "retrieval_type": item.get("retrieval_type", "unknown"),
-            "hybrid_score": item.get("hybrid_score")
+            "hybrid_score": item.get("hybrid_score"),
+            "rerank_score": item.get("rerank_score"),
         })
 
     return {

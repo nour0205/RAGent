@@ -90,6 +90,16 @@ def hybrid_retrieve(store, question: str, k: int = 5, where: dict | None = None)
         bm25_results = filtered_bm25
 
     fused = reciprocal_rank_fusion(vector_results, bm25_results)
+    print("\n[DEBUG] VECTOR RESULTS")
+    for item in vector_results:
+        print(item)
 
+    print("\n[DEBUG] BM25 RESULTS")
+    for item in bm25_results:
+        print(item)
+
+    print("\n[DEBUG] FUSED RESULTS")
+    for item in fused:
+        print(item)
     return fused[:k]
 

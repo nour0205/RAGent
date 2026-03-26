@@ -65,10 +65,13 @@ def search_whoosh(query_text: str, limit: int = 5):
 
         output = []
         for rank, hit in enumerate(results):
+            chunk_id = hit["chunk_id"]
             output.append({
-                "id": hit["chunk_id"],
+                "id": chunk_id,
+                "chunk_id": chunk_id,
                 "text": hit["content"],
                 "metadata": {
+                    "chunk_id": chunk_id,
                     "document_id": hit["document_id"],
                     "chunk_index": hit["chunk_index"],
                     "source": hit.get("source"),
@@ -80,4 +83,3 @@ def search_whoosh(query_text: str, limit: int = 5):
             })
 
         return output
-    
