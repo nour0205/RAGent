@@ -9,7 +9,7 @@ It uses hybrid retrieval, dynamic document selection, and grounded generation to
 ## Pipeline
 
 <p align="center">
-  <img src="Pipeline.png" width="450"/>
+  <img src="Pipeline2.png" width="450"/>
 </p>
 
 ## Key Features
