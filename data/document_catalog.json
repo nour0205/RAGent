@@ -134,5 +134,21 @@
     "chunk_count": 3,
     "source": "postgres_notes",
     "owner": "nour"
+  },
+  {
+    "document_id": "redis_intro",
+    "title": "redis_intro",
+    "preview": "Redis is an open-source, in-memory data store that is commonly used as a database, cache, and message broker. It stores data in memory rather than on disk, which allows for extremely fast read and write operations.",
+    "chunk_count": 7,
+    "source": null,
+    "owner": null
+  },
+  {
+    "document_id": "redis_basics",
+    "title": "redis_basics",
+    "preview": "Redis is an in-memory data store used for caching, fast data access, and real-time application features.",
+    "chunk_count": 5,
+    "source": null,
+    "owner": null
   }
 ]

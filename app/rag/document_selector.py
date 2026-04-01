@@ -56,14 +56,7 @@ def select_documents(question: str, store=None, top_k: int = 2) -> list[dict]:
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    print("\n[DEBUG] document selection (CATALOG)")
-    for score, doc in scored[:10]:
-        print({
-            "document_id": doc["document_id"],
-            "score": score,
-            "chunks": doc.get("chunk_count"),
-            "preview": doc.get("preview", "")[:120]
-        })
+   
 
     selected = [doc for score, doc in scored if score > 0]
     return selected[:top_k]

@@ -2,7 +2,7 @@
 
 RAGent is a retrieval-first backend that answers questions strictly from ingested documents.
 
-It uses hybrid retrieval, dynamic document selection, and grounded generation to produce source-backed answers.
+It uses hybrid retrieval, dynamic document selection, and grounded generation to produce source-backed answers, with a fully typed pipeline built on Pydantic.
 
 
 
@@ -21,6 +21,7 @@ It uses hybrid retrieval, dynamic document selection, and grounded generation to
 - **Document catalog** — enables scalable document lookup  
 - **Ingestion safety** — prevents duplicates via hashing  
 - **Evaluation suite** — tests routing, grounding, and sources  
+- **Typed pipeline (Pydantic)** — structured models across retrieval, routing, and generation
 
 
 
@@ -35,6 +36,7 @@ The system follows a retrieval-first architecture:
     ├── llm/            LLM client
     ├── orchestration/  Planner and routing logic
     ├── rag/            Retrieval and generation pipeline
+    ├── schemas/        Shared Pydantic models (API, retrieval, routing)
     ├── vectordb/       ChromaDB integration
     └── utils/          Shared utilities
 

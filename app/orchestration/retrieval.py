@@ -1,6 +1,7 @@
 from app.rag.hybrid_retriever import hybrid_retrieve
-from app.rag.pipeline import rerank_items
+from app.rag.reranker import rerank_items
 from app.orchestration.registry import normalize_document_id
+
 
 def retrieve_for_document(
     store,
@@ -12,10 +13,6 @@ def retrieve_for_document(
     resolved_id = normalize_document_id(document_id)
     where = {"document_id": resolved_id}
 
-    print("\n[DEBUG] retrieve_for_document")
-    print("  requested:", document_id)
-    print("  resolved :", resolved_id)
-    print("  where    :", where)
 
     candidates = hybrid_retrieve(
         store=store,
@@ -28,8 +25,12 @@ def retrieve_for_document(
 
     normalized = []
     for item in items:
-        item_copy = dict(item)
-        item_copy["text"] = item.get("text") or item.get("document") or ""
+        text = item.text.strip()
+        if not text:
+            continue
+
+        item_copy = item.model_dump()
+        item_copy["text"] = text
         normalized.append(item_copy)
 
     return normalized

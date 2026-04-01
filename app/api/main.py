@@ -1,13 +1,13 @@
-from fastapi import FastAPI
 from collections import defaultdict
-from pydantic import BaseModel
 import uuid
+
+from fastapi import FastAPI
 
 # ---- Core RAG imports ----
 from app.ingestion.chunker import base_chunks, apply_overlap
 from app.embeddings.embedder import embed_texts
 from app.vectordb.chroma_store import ChromaStore
-from app.rag.pipeline import rag_answer_with_store, rag_answer_with_sources
+from app.rag.pipeline import  rag_answer_with_sources
 from app.rag.hybrid_retriever import hybrid_retrieve
 from app.utils.hash import hash_text
 from app.llm.client import chat
@@ -15,11 +15,23 @@ from app.catalog.document_catalog import upsert_document_entry
 from app.rag.document_selector import select_documents
 
 # ---- Orchestration imports ----
-from app.orchestration.registry import DOC_REGISTRY
 from app.orchestration.retrieval import retrieve_for_document
 from app.orchestration.prompts import build_compare_prompt
 from app.orchestration.planner import plan_question
 from app.orchestration.retrieval import normalize_document_id
+
+# ---- Schema imports ----
+from app.schemas.api import (
+    AnswerResponse,
+    IngestRequest,
+    QuestionRequest,
+    SourceItem,
+)
+from app.schemas.orchestration import PlannerDecision
+
+# ---- Whoosh imports ----
+from app.vectordb.whoosh_index import add_chunks_to_whoosh
+
 
 
 # -------------------------------------------------------------------
@@ -27,40 +39,7 @@ from app.orchestration.retrieval import normalize_document_id
 # -------------------------------------------------------------------
 app = FastAPI(title="RAG API", version="1.0")
 store = ChromaStore(collection_name="api-demo")
-# -------------------------------------------------------------------
-# ---- Whoosh imports ----
-# -------------------------------------------------------------------
-from app.vectordb.whoosh_index import add_chunks_to_whoosh
 
-# -------------------------------------------------------------------
-# Schemas
-# -------------------------------------------------------------------
-class QuestionRequest(BaseModel):
-    question: str
-    document_id: str | None = None
-    document_ids: list[str] | None = None
-    owner: str | None = None
-
-
-class SourceItem(BaseModel):
-    document_id: str
-    chunk_index: int | None = None
-    text: str
-    retrieval_type: str | None = None
-    hybrid_score: float | None = None
-
-
-class AnswerResponse(BaseModel):
-    answer: str
-    sources: list[SourceItem] = []
-    route: str | None = None
-
-
-class IngestRequest(BaseModel):
-    text: str
-    document_id: str
-    source: str | None = None
-    owner: str | None = None
 
 
 # -------------------------------------------------------------------
@@ -85,11 +64,11 @@ def ask(req: QuestionRequest):
         where=where
     )
 
-    return {
-        "answer": result["answer"],
-        "route": "single",
-        "sources": result["sources"]
-    }
+    return AnswerResponse(
+        answer=result.answer,
+        route="single",
+        sources=result.sources
+)
 
 
 # -------------------------------------------------------------------
@@ -207,7 +186,10 @@ def debug_retrieve(req: QuestionRequest):
         where=where
     )
 
-    return {"question": req.question, "results": results}
+    return {
+    "question": req.question,
+    "results": [item.model_dump() for item in results]
+}
 
 
 # -------------------------------------------------------------------
@@ -297,28 +279,28 @@ def get_document_chunks(document_id: str):
 def ask_routed(req: QuestionRequest):
     # ---- explicit override from user ----
     if req.document_ids and len(req.document_ids) == 2:
-        decision = {
-            "route": "multi",
-            "targets": req.document_ids
-        }
+       decision = PlannerDecision(
+            route="multi",
+            targets=req.document_ids
+        )
     elif req.document_id:
-        decision = {
-            "route": "single",
-            "targets": [req.document_id]
-        }
+       decision = PlannerDecision(
+            route="single",
+            targets=[req.document_id]
+        )
     else:
         selected_docs = select_documents(req.question, store, top_k=2)
 
         if not selected_docs:
-            decision = {
-                "route": "unknown",
-                "targets": []
-            }
+            decision = PlannerDecision(
+                route="unknown",
+                targets=[]
+            )
         elif len(selected_docs) == 1:
-            decision = {
-                "route": "single",
-                "targets": [selected_docs[0]["document_id"]]
-            }
+            decision = PlannerDecision(
+                route="single",
+                targets=[selected_docs[0]["document_id"]]
+            )
         else:
             question_lower = req.question.lower()
             compare_signals = ["compare", "difference", "vs", "versus", "both", "between"]
@@ -326,52 +308,46 @@ def ask_routed(req: QuestionRequest):
             is_multi = any(signal in question_lower for signal in compare_signals)
 
             if is_multi:
-                decision = {
-                    "route": "multi",
-                    "targets": [
+                decision = PlannerDecision(
+                    route="multi",
+                    targets=[
                         selected_docs[0]["document_id"],
                         selected_docs[1]["document_id"],
                     ]
-                }
+                )
             else:
-                decision = {
-                    "route": "single",
-                    "targets": [selected_docs[0]["document_id"]]
-                }
+                decision = PlannerDecision(
+                    route="single",
+                    targets=[selected_docs[0]["document_id"]]
+                )
 
-    print("\n[DEBUG] routing decision:", decision)
 
     # ---------- UNKNOWN / UNSUPPORTED ----------
-    if decision["route"] == "unknown":
-        return {
-            "answer": "I don't know.",
-            "route": "unknown",
-            "sources": []
-        }
+    if decision.route == "unknown":
+        return AnswerResponse(
+            answer="I don't know.",
+            route="unknown",
+            sources=[]
+        )
 
     # ---------- SINGLE DOCUMENT ----------
-    if decision["route"] == "single":
+    if decision.route == "single":
         if req.document_id:
             target = req.document_id
-        elif len(decision["targets"]) == 1:
-            target = decision["targets"][0]
+        elif len(decision.targets) == 1:
+            target = decision.targets[0]
         else:
-            return {
-                "answer": "I don't know.",
-                "route": "single",
-                "sources": []
-            }
+            return AnswerResponse(
+                answer="I don't know.",
+                route="single",
+                sources=[]
+            )
 
         target = normalize_document_id(target)
 
         where = {"document_id": target}
         if req.owner:
             where["owner"] = req.owner
-
-        print("\n[DEBUG] single route")
-        print("  raw target :", req.document_id if req.document_id else decision["targets"][0])
-        print("  final target:", target)
-        print("  where      :", where)
 
         result = rag_answer_with_sources(
             question=req.question,
@@ -380,32 +356,32 @@ def ask_routed(req: QuestionRequest):
             where=where
         )
 
-        return {
-            "answer": result["answer"],
-            "route": "single",
-            "sources": result["sources"]
-        }
+        return AnswerResponse(
+            answer=result.answer,
+            route="single",
+            sources=result.sources 
+)
 
     # ---------- MULTI DOCUMENT ----------
-    if decision["route"] == "multi":
-        if len(decision["targets"]) != 2:
-            return {
-                "answer": "I don't know.",
-                "route": "multi",
-                "sources": []
-            }
+    if decision.route == "multi":
+        if len(decision.targets) != 2:
+            return AnswerResponse(
+                answer="I don't know.",
+                route="multi",
+                sources=[]
+            )
 
-        doc1, doc2 = decision["targets"]
+        doc1, doc2 = decision.targets
 
         ctx1 = retrieve_for_document(store, req.question, doc1)
         ctx2 = retrieve_for_document(store, req.question, doc2)
 
         if not ctx1 or not ctx2:
-            return {
-                "answer": "I don't know.",
-                "route": "multi",
-                "sources": []
-            }
+            return AnswerResponse(
+                answer="I don't know.",
+                route="multi",
+                sources=[]
+            )
 
         contexts1 = [item.get("text") or item.get("document") or "" for item in ctx1]
         contexts2 = [item.get("text") or item.get("document") or "" for item in ctx2]
@@ -413,28 +389,28 @@ def ask_routed(req: QuestionRequest):
         messages = build_compare_prompt(req.question, contexts1, contexts2)
         answer = chat(messages)
 
-        sources = []
-        for item in ctx1 + ctx2:
-            meta = item["metadata"] or {}
-            sources.append({
-                "document_id": meta.get("document_id", "unknown"),
-                "chunk_index": meta.get("chunk_index"),
-                "text": item.get("text") or item.get("document") or "",
-                "retrieval_type": item.get("retrieval_type", "unknown"),
-                "hybrid_score": item.get("hybrid_score")
-            })
+        sources = [
+            SourceItem(
+                document_id=item.get("document_id", "unknown"),
+                chunk_index=item.get("chunk_index"),
+                text=item.get("text") or "",
+                retrieval_type=item.get("retrieval_type", "unknown"),
+                hybrid_score=item.get("hybrid_score"),
+            )
+            for item in (ctx1 + ctx2)
+        ]
 
-        return {
-            "answer": answer,
-            "route": "multi",
-            "sources": sources
-        }
+        return AnswerResponse(
+            answer=answer,
+            route="multi",
+            sources=sources
+        )
 
-    return {
-        "answer": "I don't know.",
-        "route": "unknown",
-        "sources": []
-    }
+    return AnswerResponse(
+        answer="I don't know.",
+        route="unknown",
+        sources=[]
+    )
 
 # -------------------------------------------------------------------
 # DEBUG: Planning
