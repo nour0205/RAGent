@@ -136,16 +136,4 @@ def hybrid_retrieve(
 
     fused = reciprocal_rank_fusion(vector_results, bm25_results)
 
-    print("\n[DEBUG] VECTOR RESULTS")
-    for item in vector_results:
-        print(item)
-
-    print("\n[DEBUG] BM25 RESULTS")
-    for item in bm25_results:
-        print(item)
-
-    print("\n[DEBUG] FUSED RESULTS")
-    for item in fused:
-        print(item.model_dump())
-
     return fused[:k]
