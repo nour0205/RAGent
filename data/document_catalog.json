@@ -150,5 +150,35 @@
     "chunk_count": 5,
     "source": null,
     "owner": null
+  },
+  {
+    "document_id": "db_lecture_2",
+    "title": "db_lecture_2",
+    "preview": "Indexes and Query Performance",
+    "chunk_count": 8
+  },
+  {
+    "document_id": "db_lecture_3",
+    "title": "db_lecture_3",
+    "preview": "Transactions and ACID Properties",
+    "chunk_count": 8
+  },
+  {
+    "document_id": "ds_lecture_1",
+    "title": "ds_lecture_1",
+    "preview": "Arrays and Time Complexity",
+    "chunk_count": 7
+  },
+  {
+    "document_id": "ds_lecture_2",
+    "title": "ds_lecture_2",
+    "preview": "Linked Lists",
+    "chunk_count": 6
+  },
+  {
+    "document_id": "ds_lecture_3",
+    "title": "ds_lecture_3",
+    "preview": "Stacks and Queues",
+    "chunk_count": 7
   }
 ]

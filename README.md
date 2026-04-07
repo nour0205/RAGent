@@ -1,8 +1,6 @@
-# RAGent
+# Recall
 
-RAGent is a retrieval-first backend that answers questions strictly from ingested documents.
-
-It uses hybrid retrieval, dynamic document selection, and grounded generation to produce source-backed answers, with a fully typed pipeline built on Pydantic.
+Recall is a retrieval-first study memory system that helps students revisit, understand, and reinforce their knowledge using grounded answers linked to their own academic materials.
 
 
 
