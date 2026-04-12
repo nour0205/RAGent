@@ -7,18 +7,16 @@ from fastapi import FastAPI
 from app.ingestion.chunker import base_chunks, apply_overlap
 from app.embeddings.embedder import embed_texts
 from app.vectordb.chroma_store import ChromaStore
-from app.rag.pipeline import  rag_answer_with_sources
+from app.rag.pipeline import rag_answer_with_sources
 from app.rag.hybrid_retriever import hybrid_retrieve
 from app.utils.hash import hash_text
 from app.llm.client import chat
 from app.catalog.document_catalog import upsert_document_entry
-from app.rag.document_selector import select_documents
 
 # ---- Orchestration imports ----
-from app.orchestration.retrieval import retrieve_for_document
-from app.orchestration.prompts import build_compare_prompt
 from app.orchestration.planner import plan_question
-from app.orchestration.retrieval import normalize_document_id
+from app.orchestration.prompts import build_answer_prompt
+from app.orchestration.utils import build_study_hint  
 
 # ---- Schema imports ----
 from app.schemas.api import (
@@ -27,23 +25,20 @@ from app.schemas.api import (
     QuestionRequest,
     SourceItem,
 )
-from app.schemas.orchestration import PlannerDecision
 
 # ---- Whoosh imports ----
 from app.vectordb.whoosh_index import add_chunks_to_whoosh
 
 
-
 # -------------------------------------------------------------------
 # App + Store
 # -------------------------------------------------------------------
-app = FastAPI(title="RAG API", version="1.0")
+app = FastAPI(title="Recall API", version="2.0")
 store = ChromaStore(collection_name="api-demo")
 
 
-
 # -------------------------------------------------------------------
-# ASK (simple RAG, no orchestration)
+# ASK (simple RAG)
 # -------------------------------------------------------------------
 @app.post("/ask", response_model=AnswerResponse)
 def ask(req: QuestionRequest):
@@ -66,9 +61,10 @@ def ask(req: QuestionRequest):
 
     return AnswerResponse(
         answer=result.answer,
-        route="single",
-        sources=result.sources
-)
+        route="concept_explanation",
+        sources=result.sources,
+        study_hint=None,
+    )
 
 
 # -------------------------------------------------------------------
@@ -78,32 +74,28 @@ def ask(req: QuestionRequest):
 def ingest(req: IngestRequest):
     doc_hash = hash_text(req.text)
 
-    # --- Dedup by content ---
     existing = store.collection.get(
         where={"doc_hash": doc_hash},
         limit=1
     )
     if existing["ids"]:
-        return {"status": "duplicate", "reason": "document already ingested"}
+        return {"status": "duplicate"}
 
-    # --- Prevent document_id collision ---
     existing_id = store.collection.get(
         where={"document_id": req.document_id},
         limit=1
     )
     if existing_id["ids"]:
-        return {"status": "conflict", "reason": "document_id already exists"}
+        return {"status": "conflict"}
 
-    # 1) Chunk
     chunks = base_chunks(req.text)
     chunks = apply_overlap(chunks, overlap=1)
+
     if not chunks:
         return {"status": "no content"}
 
-    # 2) Embed
     embeddings = embed_texts(chunks)
 
-    # 3) Store
     ids = [str(uuid.uuid4()) for _ in chunks]
     metadatas = []
 
@@ -113,69 +105,59 @@ def ingest(req: IngestRequest):
             "document_id": req.document_id,
             "doc_hash": doc_hash,
             "chunk_index": i,
+            "document_type": req.document_type,
+            "course": req.course,
+            "topic_tags": req.topic_tags,
         }
         if req.source:
             meta["source"] = req.source
         if req.owner:
             meta["owner"] = req.owner
         metadatas.append(meta)
-    whoosh_chunks = []
 
-    for i in range(len(chunks)):
-        whoosh_chunks.append({
+    whoosh_chunks = [
+        {
             "chunk_id": ids[i],
             "document_id": req.document_id,
             "chunk_index": i,
-            "source": req.source or "",
-            "owner": req.owner or "",
             "text": chunks[i],
-        })
+        }
+        for i in range(len(chunks))
+    ]
+
     store.add_texts(
         ids=ids,
         texts=chunks,
         embeddings=embeddings,
         metadatas=metadatas
     )
+
     add_chunks_to_whoosh(whoosh_chunks)
-    
-    preview = chunks[0][:300] if chunks else ""
 
     upsert_document_entry({
         "document_id": req.document_id,
         "title": req.document_id,
-        "preview": preview,
+        "preview": chunks[0][:300],
         "chunk_count": len(chunks),
-        "source": req.source,
-        "owner": req.owner,
     })
+
     return {"status": "ingested", "chunks_added": len(chunks)}
 
 
 # -------------------------------------------------------------------
-# DEBUG: inspect a document
+# ASK ROUTED (Recall version)
 # -------------------------------------------------------------------
-@app.get("/debug/doc/{document_id}")
-def debug_doc(document_id: str):
-    result = store.collection.get(where={"document_id": document_id})
-    return {
-        "count": len(result["ids"]),
-        "documents": result["documents"],
-        "metadatas": result["metadatas"],
-    }
+@app.post("/ask_routed", response_model=AnswerResponse)
+def ask_routed(req: QuestionRequest):
 
+    # 1. Plan (intent)
+    plan = plan_question(req.question)
+    route = plan["route"]
 
-# -------------------------------------------------------------------
-# DEBUG: inspect retrieval
-# -------------------------------------------------------------------
-@app.post("/debug/retrieve")
-def debug_retrieve(req: QuestionRequest):
+    # 2. Retrieve (global, multi-doc)
     where = {}
-
-    if req.document_id:
-        where["document_id"] = req.document_id
     if req.owner:
         where["owner"] = req.owner
-
     if not where:
         where = None
 
@@ -186,277 +168,99 @@ def debug_retrieve(req: QuestionRequest):
         where=where
     )
 
-    return {
-    "question": req.question,
-    "results": [item.model_dump() for item in results]
-}
+    if not results:
+        return AnswerResponse(
+            answer="I don't know.",
+            route=route,
+            sources=[],
+            study_hint=None,
+        )
 
+    # 3. Build prompt
+    chunks = [item.text for item in results]
 
-# -------------------------------------------------------------------
-# list ingested documents
-# -------------------------------------------------------------------
-
-
-@app.get("/documents")
-def list_documents():
-    """
-    Return a grouped summary of ingested documents.
-    Groups chunks by document_id.
-    """
-    data = store.collection.get(
-        include=["metadatas", "documents"]
+    messages = build_answer_prompt(
+        question=req.question,
+        chunks=chunks,
+        route=route
     )
 
-    metadatas = data.get("metadatas", []) or []
-    documents = data.get("documents", []) or []
+    answer = chat(messages)
+
+    # 4. Build sources
+    sources = [
+        SourceItem(
+            document_id=item.document_id,
+            chunk_index=item.chunk_index,
+            text=item.text,
+            retrieval_type=item.retrieval_type,
+            hybrid_score=item.hybrid_score,
+            rerank_score=getattr(item, "rerank_score", None),
+        )
+        for item in results
+    ]
+
+    # 5. Study hint
+    study_hint = build_study_hint(route, sources)
+
+    return AnswerResponse(
+        answer=answer,
+        route=route,
+        sources=sources,
+        study_hint=study_hint,
+    )
+
+
+# -------------------------------------------------------------------
+# DEBUG
+# -------------------------------------------------------------------
+@app.post("/debug/retrieve")
+def debug_retrieve(req: QuestionRequest):
+    results = hybrid_retrieve(
+        store=store,
+        question=req.question,
+        k=5
+    )
+    return {"results": [r.model_dump() for r in results]}
+
+
+@app.post("/debug/plan")
+def debug_plan(req: QuestionRequest):
+    return {"plan": plan_question(req.question)}
+
+
+# -------------------------------------------------------------------
+# DOCUMENT LIST
+# -------------------------------------------------------------------
+@app.get("/documents")
+@app.get("/documents")
+def list_documents():
+    data = store.collection.get(include=["metadatas", "documents"])
 
     grouped = defaultdict(lambda: {
         "document_id": None,
         "chunks": 0,
-        "source": None,
-        "owner": None,
         "preview": None,
     })
 
-    for meta, doc_text in zip(metadatas, documents):
-        if not meta:
+    metadatas = data.get("metadatas") or []
+    documents = data.get("documents") or []
+
+    for meta, doc in zip(metadatas, documents):
+        if meta is None:
+            continue
+        if doc is None:
             continue
 
-        document_id = meta.get("document_id", "unknown")
-        entry = grouped[document_id]
+        doc_id = meta.get("document_id")
+        if not doc_id:
+            continue
 
-        entry["document_id"] = document_id
+        entry = grouped[doc_id]
+        entry["document_id"] = doc_id
         entry["chunks"] += 1
-        entry["source"] = meta.get("source")
-        entry["owner"] = meta.get("owner")
 
-        if entry["preview"] is None and doc_text:
-            entry["preview"] = doc_text[:200]
+        if not entry["preview"]:
+            entry["preview"] = doc[:200]
 
-    return {
-        "documents": list(grouped.values()),
-        "count": len(grouped),
-    }
-
-
-# -------------------------------------------------------------------
-# document preview 
-# -------------------------------------------------------------------
-
-@app.get("/documents/{document_id}")
-def get_document_chunks(document_id: str):
-    data = store.collection.get(
-        where={"document_id": document_id},
-        include=["metadatas", "documents"]
-    )
-
-    ids = data.get("ids", []) or []
-    metadatas = data.get("metadatas", []) or []
-    documents = data.get("documents", []) or []
-
-    chunks = []
-    for chunk_id, meta, text in zip(ids, metadatas, documents):
-        chunks.append({
-            "id": chunk_id,
-            "document_id": meta.get("document_id"),
-            "chunk_index": meta.get("chunk_index"),
-            "source": meta.get("source"),
-            "owner": meta.get("owner"),
-            "text": text,
-        })
-
-    chunks.sort(key=lambda x: x.get("chunk_index", 0))
-
-    return {
-        "document_id": document_id,
-        "chunks": chunks,
-        "chunk_count": len(chunks),
-    }
-# -------------------------------------------------------------------
-# ASK ROUTED (single-doc OR multi-doc)
-# -------------------------------------------------------------------
-@app.post("/ask_routed", response_model=AnswerResponse)
-def ask_routed(req: QuestionRequest):
-    # ---- explicit override from user ----
-    if req.document_ids and len(req.document_ids) == 2:
-       decision = PlannerDecision(
-            route="multi",
-            targets=req.document_ids
-        )
-    elif req.document_id:
-       decision = PlannerDecision(
-            route="single",
-            targets=[req.document_id]
-        )
-    else:
-        selected_docs = select_documents(req.question, store, top_k=2)
-
-        if not selected_docs:
-            decision = PlannerDecision(
-                route="unknown",
-                targets=[]
-            )
-        elif len(selected_docs) == 1:
-            decision = PlannerDecision(
-                route="single",
-                targets=[selected_docs[0]["document_id"]]
-            )
-        else:
-            question_lower = req.question.lower()
-            compare_signals = ["compare", "difference", "vs", "versus", "both", "between"]
-
-            is_multi = any(signal in question_lower for signal in compare_signals)
-
-            if is_multi:
-                decision = PlannerDecision(
-                    route="multi",
-                    targets=[
-                        selected_docs[0]["document_id"],
-                        selected_docs[1]["document_id"],
-                    ]
-                )
-            else:
-                decision = PlannerDecision(
-                    route="single",
-                    targets=[selected_docs[0]["document_id"]]
-                )
-
-
-    # ---------- UNKNOWN / UNSUPPORTED ----------
-    if decision.route == "unknown":
-        return AnswerResponse(
-            answer="I don't know.",
-            route="unknown",
-            sources=[]
-        )
-
-    # ---------- SINGLE DOCUMENT ----------
-    if decision.route == "single":
-        if req.document_id:
-            target = req.document_id
-        elif len(decision.targets) == 1:
-            target = decision.targets[0]
-        else:
-            return AnswerResponse(
-                answer="I don't know.",
-                route="single",
-                sources=[]
-            )
-
-        target = normalize_document_id(target)
-
-        where = {"document_id": target}
-        if req.owner:
-            where["owner"] = req.owner
-
-        result = rag_answer_with_sources(
-            question=req.question,
-            store=store,
-            k=5,
-            where=where
-        )
-
-        return AnswerResponse(
-            answer=result.answer,
-            route="single",
-            sources=result.sources 
-)
-
-    # ---------- MULTI DOCUMENT ----------
-    if decision.route == "multi":
-        if len(decision.targets) != 2:
-            return AnswerResponse(
-                answer="I don't know.",
-                route="multi",
-                sources=[]
-            )
-
-        doc1, doc2 = decision.targets
-
-        ctx1 = retrieve_for_document(store, req.question, doc1)
-        ctx2 = retrieve_for_document(store, req.question, doc2)
-
-        if not ctx1 or not ctx2:
-            return AnswerResponse(
-                answer="I don't know.",
-                route="multi",
-                sources=[]
-            )
-
-        contexts1 = [item.get("text") or item.get("document") or "" for item in ctx1]
-        contexts2 = [item.get("text") or item.get("document") or "" for item in ctx2]
-
-        messages = build_compare_prompt(req.question, contexts1, contexts2)
-        answer = chat(messages)
-
-        sources = [
-            SourceItem(
-                document_id=item.get("document_id", "unknown"),
-                chunk_index=item.get("chunk_index"),
-                text=item.get("text") or "",
-                retrieval_type=item.get("retrieval_type", "unknown"),
-                hybrid_score=item.get("hybrid_score"),
-            )
-            for item in (ctx1 + ctx2)
-        ]
-
-        return AnswerResponse(
-            answer=answer,
-            route="multi",
-            sources=sources
-        )
-
-    return AnswerResponse(
-        answer="I don't know.",
-        route="unknown",
-        sources=[]
-    )
-
-# -------------------------------------------------------------------
-# DEBUG: Planning
-# -------------------------------------------------------------------
-@app.post("/debug/plan")
-def debug_plan(req: QuestionRequest):
-    plan = plan_question(req.question)
-    return {"question": req.question, "plan": plan}
-
-# -------------------------------------------------------------------
-# DEBUG: Re-build catalogue
-# -------------------------------------------------------------------
-@app.post("/debug/rebuild_catalog")
-def rebuild_catalog():
-    data = store.collection.get(include=["metadatas", "documents"])
-
-    metadatas = data.get("metadatas", []) or []
-    documents = data.get("documents", []) or []
-
-    grouped = {}
-
-    for meta, doc_text in zip(metadatas, documents):
-        if not meta:
-            continue
-
-        document_id = meta.get("document_id")
-        if not document_id:
-            continue
-
-        if document_id not in grouped:
-            grouped[document_id] = {
-                "document_id": document_id,
-                "title": document_id,
-                "preview": (doc_text or "")[:300],
-                "chunk_count": 0,
-                "source": meta.get("source"),
-                "owner": meta.get("owner"),
-            }
-
-        grouped[document_id]["chunk_count"] += 1
-
-    for entry in grouped.values():
-        upsert_document_entry(entry)
-
-    return {
-        "status": "rebuilt",
-        "documents_added": len(grouped),
-        "documents": list(grouped.keys())
-    }
+    return {"documents": list(grouped.values())}

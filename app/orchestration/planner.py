@@ -5,7 +5,12 @@ from typing import Any
 from app.llm.client import chat
 from app.orchestration.registry import DOC_REGISTRY
 
-ALLOWED_ROUTES = {"single", "multi", "unknown"}
+ALLOWED_ROUTES = {
+    "concept_explanation",
+    "source_recall",
+    "exam_preparation",
+    "unknown",
+}
 
 
 def _registry_view() -> dict[str, Any]:
@@ -22,12 +27,15 @@ def _registry_view() -> dict[str, Any]:
 
 def build_planner_messages(question: str) -> list[dict]:
     system = (
-    "You are a planning agent.\n"
+    "You are a study planning agent.\n"
     "\n"
-    "Your task is to analyze the user's question and decide:\n"
-    "- whether it concerns a single document,\n"
-    "- multiple documents,\n"
-    "- or cannot be answered safely.\n"
+    "Your task is to analyze the user's question and classify its intent.\n"
+    "\n"
+    "You MUST choose one of the following routes:\n"
+    "- concept_explanation → the user wants to understand a concept\n"
+    "- source_recall → the user wants to find where something was explained\n"
+    "- exam_preparation → the user wants to know what to revise or what matters most\n"
+    "- unknown → if the question is unclear or cannot be safely classified\n"
     "\n"
     "You MUST follow these rules strictly:\n"
     "\n"
@@ -36,34 +44,25 @@ def build_planner_messages(question: str) -> list[dict]:
     "3. Use ONLY the document registry provided.\n"
     "4. Output ONLY valid JSON. No text outside JSON.\n"
     "5. Use ONLY registry KEYS as values in \"targets\".\n"
-    "6. If the question explicitly mentions TWO or more different systems,\n"
-    "   you MUST:\n"
-    "   - set route = \"multi\"\n"
-    "   - include ALL relevant registry keys in \"targets\"\n"
-    "7. If a concept could apply to multiple systems AND the question does NOT\n"
-    "   explicitly name one, you MUST set route = \"unknown\".\n"
-    "8. Do NOT guess based on what documents exist in the registry.\n"
-    "9. If unsure, choose route = \"unknown\".\n"
+    "6. Select targets only if the question clearly refers to specific documents.\n"
+    "7. If unsure about the intent, choose \"unknown\".\n"
     "\n"
     "The output MUST match this schema exactly:\n"
-    "{\"route\":\"single|multi|unknown\",\"targets\":[],\"reason\":\"\"}\n"
+    "{\"route\":\"concept_explanation|source_recall|exam_preparation|unknown\",\"targets\":[],\"reason\":\"\"}\n"
     "\n"
-    "You MUST follow the examples below exactly.\n"
+    "Examples:\n"
     "\n"
-    "Example 1:\n"
-    "Question: Why don’t readers block writers in PostgreSQL?\n"
+    "Question: What is Bayes theorem?\n"
     "Output:\n"
-    "{\"route\":\"single\",\"targets\":[\"postgres\"],\"reason\":\"The question explicitly refers to PostgreSQL\"}\n"
+    "{\"route\":\"concept_explanation\",\"targets\":[],\"reason\":\"The user is asking to understand a concept\"}\n"
     "\n"
-    "Example 2:\n"
-    "Question: Compare MVCC in PostgreSQL versus snapshot isolation in SQL Server.\n"
+    "Question: Which document explains Bayes theorem?\n"
     "Output:\n"
-    "{\"route\":\"multi\",\"targets\":[\"postgres\",\"sqlserver\"],\"reason\":\"The question explicitly compares two database systems\"}\n"
+    "{\"route\":\"source_recall\",\"targets\":[],\"reason\":\"The user is asking to locate a source\"}\n"
     "\n"
-    "Example 3:\n"
-    "Question: How does MVCC work?\n"
+    "Question: What should I revise for the exam?\n"
     "Output:\n"
-    "{\"route\":\"unknown\",\"targets\":[],\"reason\":\"MVCC is a general concept and no specific system was mentioned\"}\n"
+    "{\"route\":\"exam_preparation\",\"targets\":[],\"reason\":\"The user is asking about revision priorities\"}\n"
 )
 
 
@@ -101,16 +100,7 @@ def parse_and_validate_plan(raw: str) -> dict:
     # Only allow known registry keys
     targets = [t for t in targets if t in DOC_REGISTRY]
 
-    # Enforce shape rules
-    if route == "single" and len(targets) > 1:
-        targets = targets[:1]
-    if route == "multi" and len(targets) < 2:
-        return {"route": "unknown", "targets": [], "reason": "Multi requires 2 targets"}
-
-    # Optional: cap multi to 2 for now
-    if route == "multi":
-        targets = targets[:2]
-
+   
     if not isinstance(reason, str):
         reason = ""
 

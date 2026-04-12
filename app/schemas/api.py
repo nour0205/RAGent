@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-
+from typing import Literal
 
 class QuestionRequest(BaseModel):
     question: str
@@ -21,6 +21,7 @@ class AnswerResponse(BaseModel):
     answer: str
     sources: list[SourceItem] = Field(default_factory=list)
     route: str | None = None
+    study_hint: str | None = None
 
 
 class IngestRequest(BaseModel):
@@ -28,6 +29,10 @@ class IngestRequest(BaseModel):
     document_id: str
     source: str | None = None
     owner: str | None = None
+    document_type: Literal["lecture_note"] | None = None
+    course: str | None = None
+    topic_tags: list[str] = Field(default_factory=list)
+
 
 class RagAnswerResult(BaseModel):
     answer: str
