@@ -1,25 +1,32 @@
 # Recall
 
-Recall is a retrieval-first study memory system that helps students revisit, understand, and reinforce their knowledge using grounded answers linked to their own academic materials.
+Recall is a retrieval-first study memory system designed to help students revisit, understand, and reinforce knowledge from their own lecture materials.
 
+Instead of only answering questions, Recall focuses on:
 
+- explaining concepts clearly  
+- locating where topics were originally covered  
+- guiding what to review next  
+
+All responses are strictly grounded in retrieved sources.
+
+## Pipeline
 
 ## Pipeline
 
 <p align="center">
-  <img src="Pipeline2.png" width="450"/>
+  <img src="diagram.png" width="550"/>
 </p>
 
 ## Key Features
 
-- **Dynamic document selection** — automatically selects relevant documents from a catalog  
-- **Hybrid retrieval** — combines semantic search (vector) and keyword search (BM25)  
-- **Reranking** — improves relevance before generation  
-- **Grounded answers** — responses include source attribution  
-- **Document catalog** — enables scalable document lookup  
-- **Ingestion safety** — prevents duplicates via hashing  
-- **Evaluation suite** — tests routing, grounding, and sources  
-- **Typed pipeline (Pydantic)** — structured models across retrieval, routing, and generation
+- **Intent-based responses** — adapts answers based on study intent (explanation, recall, revision)
+- **Global hybrid retrieval** — searches across all materials using semantic + keyword search
+- **Reranking** — prioritizes the most relevant content
+- **Grounded answers** — all responses are based only on retrieved sources
+- **Study guidance** — suggests what to review next (`study_hint`)
+- **Metadata-aware ingestion** — supports course and topic-based organization
+- **Typed pipeline (Pydantic)** — structured data across all stages
 
 
 
@@ -32,7 +39,7 @@ The system follows a retrieval-first architecture:
     ├── embeddings/     Embedding interface
     ├── ingestion/      Document chunking and preprocessing
     ├── llm/            LLM client
-    ├── orchestration/  Planner and routing logic
+    ├── orchestration/  Intent classification and query handling
     ├── rag/            Retrieval and generation pipeline
     ├── schemas/        Shared Pydantic models (API, retrieval, routing)
     ├── vectordb/       ChromaDB integration
@@ -80,19 +87,31 @@ Interactive API docs: `http://127.0.0.1:8000/docs`
 
 Frontend: `http://localhost:8501`
 
-## Frontend
+## Study Intents
 
-- Ask questions  
-- Ingest documents  
-- Browse knowledge base  
+Recall classifies each query into a study intent:
 
-## Evaluation
+- **concept_explanation** — explain a concept clearly  
+- **source_recall** — locate where something was covered  
+- **exam_preparation** — identify what to review  
+- **unknown** — fallback when intent is unclear  
 
-Run the evaluation suite with:
+This allows the system to adapt how answers are generated.
 
-    python run_eval.py
 
-Checks routing, grounding, and source attribution.
+## Response Format
+
+Each response includes:
+
+- **answer** — grounded explanation  
+- **sources** — retrieved supporting chunks  
+- **study_hint** — suggestion on what to review next  
+
+Example:
+
+"Review these lecture notes to reinforce the concept: db_lecture_1, db_lecture_2"
+
+
 
 ## Limitations
 
