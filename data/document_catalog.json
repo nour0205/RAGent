@@ -180,5 +180,35 @@
     "title": "ds_lecture_3",
     "preview": "Stacks and Queues",
     "chunk_count": 7
+  },
+  {
+    "document_id": "db_normalization_intro",
+    "title": "db_normalization_intro",
+    "preview": "Normalization is the process of organizing data in a relational database to reduce redundancy and improve data integrity. Poorly designed tables often repeat the same facts in multiple rows, which can cause update anomalies, insertion anomalies, and deletion anomalies. An update anomaly happens when",
+    "chunk_count": 3
+  },
+  {
+    "document_id": "db_transactions_concurrency",
+    "title": "db_transactions_concurrency",
+    "preview": "A transaction is a logical unit of work that must either complete entirely or have no effect at all. The ACID properties describe the reliability of transactions. Atomicity means all operations of a transaction happen or none happen. Consistency means the database moves from one valid state to anoth",
+    "chunk_count": 3
+  },
+  {
+    "document_id": "ml_supervised_learning_basics",
+    "title": "ml_supervised_learning_basics",
+    "preview": "Supervised learning is a machine learning paradigm in which a model learns from labeled examples. Each training example contains input features and a target output. The goal is to learn a mapping from inputs to outputs so that the model can generalize to unseen data. Supervised learning tasks are of",
+    "chunk_count": 3
+  },
+  {
+    "document_id": "ml_bias_variance_generalization",
+    "title": "ml_bias_variance_generalization",
+    "preview": "The bias-variance tradeoff helps explain prediction error in machine learning models. Bias refers to error caused by overly simplistic assumptions in the learning algorithm. High-bias models are usually too simple and may underfit the training data. Variance refers to error caused by excessive sensi",
+    "chunk_count": 3
+  },
+  {
+    "document_id": "os_processes_threads_scheduling",
+    "title": "os_processes_threads_scheduling",
+    "preview": "A process is an executing program with its own memory space, resources, and execution state. A thread is a smaller unit of execution within a process. Threads of the same process share memory and resources, which makes communication between them faster but also introduces synchronization issues. Con",
+    "chunk_count": 3
   }
 ]

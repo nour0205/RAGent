@@ -107,7 +107,7 @@ def ingest(req: IngestRequest):
             "chunk_index": i,
             "document_type": req.document_type,
             "course": req.course,
-            "topic_tags": req.topic_tags,
+            "topic_tags": ", ".join(req.topic_tags) if req.topic_tags else "",
         }
         if req.source:
             meta["source"] = req.source
@@ -168,14 +168,16 @@ def ask_routed(req: QuestionRequest):
         where=where
     )
 
-    if not results:
+    top_score = results[0].hybrid_score if results else None
+
+    if not results or top_score is None or top_score < 0.02:
         return AnswerResponse(
             answer="I don't know.",
             route=route,
             sources=[],
             study_hint=None,
         )
-
+    
     # 3. Build prompt
     chunks = [item.text for item in results]
 
@@ -187,6 +189,14 @@ def ask_routed(req: QuestionRequest):
 
     answer = chat(messages)
 
+    if answer.strip() == "I don't know.":
+        return AnswerResponse(
+            answer="I don't know.",
+            route=route,
+            sources=[],
+            study_hint=None,
+        )
+
     # 4. Build sources
     sources = [
         SourceItem(
@@ -197,7 +207,7 @@ def ask_routed(req: QuestionRequest):
             hybrid_score=item.hybrid_score,
             rerank_score=getattr(item, "rerank_score", None),
         )
-        for item in results
+        for item in results[:3]
     ]
 
     # 5. Study hint
