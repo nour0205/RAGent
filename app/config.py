@@ -5,7 +5,7 @@ load_dotenv()
 
 MODEL_NAME = "gpt-4o-mini"
 TEMPERATURE = 0.0
-MAX_TOKENS = 300
+MAX_TOKENS = 800
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 

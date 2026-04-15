@@ -1,5 +1,34 @@
-def base_chunks(text: str) -> list[str]:
-    return [line.strip() for line in text.split("\n") if line.strip()]
+import re
+
+
+def base_chunks(text: str, max_chars: int = 500) -> list[str]:
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return []
+
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+
+    chunks = []
+    current = ""
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+
+        if len(current) + len(sentence) + 1 <= max_chars:
+            current = f"{current} {sentence}".strip()
+        else:
+            if current:
+                chunks.append(current)
+            current = sentence
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
 def apply_overlap(chunks: list[str], overlap: int = 1) -> list[str]:
     if overlap <= 0:
         return chunks
@@ -16,4 +45,3 @@ def apply_overlap(chunks: list[str], overlap: int = 1) -> list[str]:
             overlapped.append(chunk)
 
     return overlapped
-
