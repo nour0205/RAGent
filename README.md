@@ -1,133 +1,249 @@
 # Recall
 
-Recall is a retrieval-first study memory system designed to help students revisit, understand, and reinforce knowledge from their own lecture materials.
+**Recall** is a retrieval-first study assistant that helps students learn from their own lecture materials.
 
-Instead of only answering questions, Recall focuses on:
+Instead of generating answers from general knowledge, Recall retrieves relevant content from uploaded notes, lectures, and study documents, then produces grounded explanations with transparent source attribution and personalized study guidance.
 
-- explaining concepts clearly  
-- locating where topics were originally covered  
-- guiding what to review next  
+The goal is not simply to answer questions, but to help students revisit concepts, locate where they were taught, and identify what to review next.
 
-All responses are strictly grounded in retrieved sources.
+---
 
-## Pipeline
+## Why Recall?
 
-## Pipeline
+Students often struggle with:
 
-<p align="center">
-  <img src="diagram.png" width="550"/>
-</p>
+* Finding where a concept was originally covered
+* Revisiting large collections of lecture notes
+* Identifying what topics deserve further revision
+* Trusting AI-generated answers that lack sources
 
-## Key Features
+Recall addresses these challenges through a retrieval-first architecture that keeps responses grounded in the student's own materials.
 
-- **Intent-based responses** — adapts answers based on study intent (explanation, recall, revision)
-- **Global hybrid retrieval** — searches across all materials using semantic + keyword search
-- **Reranking** — prioritizes the most relevant content
-- **Grounded answers** — all responses are based only on retrieved sources
-- **Study guidance** — suggests what to review next (`study_hint`)
-- **Metadata-aware ingestion** — supports course and topic-based organization
-- **Typed pipeline (Pydantic)** — structured data across all stages
+---
 
+## Core Features
 
+### Grounded Answers
+
+Every response is generated using retrieved lecture content rather than relying solely on the language model.
+
+### Intent-Aware Learning
+
+Recall identifies the user's study intent and adapts responses accordingly.
+
+Supported intents include:
+
+* Concept Explanation
+* Source Recall
+* Exam Preparation
+* Unknown / Fallback
+
+### Hybrid Retrieval
+
+Combines:
+
+* Semantic search (vector embeddings)
+* Keyword search (Whoosh)
+
+to improve recall and retrieval quality.
+
+### Reranking
+
+Retrieved chunks are reranked before answer generation to prioritize the most relevant study material.
+
+### Source Attribution
+
+Each answer includes supporting lecture passages used during generation.
+
+### Study Guidance
+
+Recall provides study hints that suggest what concepts or materials should be reviewed next.
+
+### Knowledge Base Management
+
+Users can ingest, browse, and manage study materials through the frontend interface.
+
+---
+
+## Example Workflow
+
+1. Upload lecture notes
+2. Notes are chunked and indexed
+3. User asks a question
+4. Recall identifies the learning intent
+5. Relevant chunks are retrieved using hybrid search
+6. Results are reranked
+7. Grounded answer is generated
+8. Sources and study recommendations are returned
+
+---
 
 ## Architecture
 
-The system follows a retrieval-first architecture:
+```text
+User Question
+       │
+       ▼
+Intent Classification
+       │
+       ▼
+Hybrid Retrieval
+(Vector + Keyword)
+       │
+       ▼
+Reranking
+       │
+       ▼
+Grounded Generation
+       │
+       ▼
+Answer + Sources + Study Hint
+```
 
-    app/
-    ├── api/            FastAPI endpoints
-    ├── embeddings/     Embedding interface
-    ├── ingestion/      Document chunking and preprocessing
-    ├── llm/            LLM client
-    ├── orchestration/  Intent classification and query handling
-    ├── rag/            Retrieval and generation pipeline
-    ├── schemas/        Shared Pydantic models (API, retrieval, routing)
-    ├── vectordb/       ChromaDB integration
-    └── utils/          Shared utilities
+### Backend
 
-    frontend/
-    └── app.py          Streamlit frontend
+```text
+app/
+├── api/
+├── embeddings/
+├── ingestion/
+├── llm/
+├── orchestration/
+├── rag/
+├── schemas/
+├── vectordb/
+└── utils/
+```
 
-### Top-level files
+### Frontend
 
-    eval_cases.json     Evaluation test cases
-    run_eval.py         Automated evaluation script
-    requirements.txt    Project dependencies
-    README.md
+```text
+recall-frontend/
+└── React + TypeScript
+```
 
+---
 
-### `POST /ask`
-Single-document query.
+## Tech Stack
 
-### `POST /ask_routed`
-Query with dynamic document selection and routing.
+### Backend
 
-### `GET /documents`
-List all documents.
+* FastAPI
+* ChromaDB
+* Whoosh
+* OpenAI-compatible LLM API
+* Pydantic
 
-### `GET /documents/{document_id}`
-Get document chunks.
+### Frontend
+
+* React
+* TypeScript
+* Tailwind CSS
+
+### Retrieval
+
+* Semantic embeddings
+* Hybrid retrieval
+* Reranking pipeline
+
+---
+
+## API Endpoints
+
+### Ask a Question
+
+```http
+POST /ask
+```
+
+Returns:
+
+```json
+{
+  "answer": "...",
+  "route": "exam_preparation",
+  "sources": [],
+  "study_hint": "..."
+}
+```
+
+### Ingest a Document
+
+```http
+POST /ingest
+```
+
+### List Documents
+
+```http
+GET /documents
+```
+
+---
 
 ## Running the Project
 
-### 1. Install dependencies
+### Install Dependencies
 
-    pip install -r requirements.txt
+```bash
+pip install -r requirements.txt
+```
 
-### 2. Start the FastAPI backend
+### Start Backend
 
-    python -m uvicorn app.api.main:app --reload
+```bash
+python -m uvicorn app.api.main:app --reload
+```
 
-Backend: `http://127.0.0.1:8000`  
-Interactive API docs: `http://127.0.0.1:8000/docs`
+Backend:
 
-### 3. Start the Streamlit frontend
+```text
+http://127.0.0.1:8000
+```
 
-    python -m streamlit run frontend/app.py
+API Docs:
 
-Frontend: `http://localhost:8501`
+```text
+http://127.0.0.1:8000/docs
+```
 
-## Study Intents
+### Start Frontend
 
-Recall classifies each query into a study intent:
+```bash
+cd recall-frontend
+npm install
+npm run dev
+```
 
-- **concept_explanation** — explain a concept clearly  
-- **source_recall** — locate where something was covered  
-- **exam_preparation** — identify what to review  
-- **unknown** — fallback when intent is unclear  
+Frontend:
 
-This allows the system to adapt how answers are generated.
+```text
+http://localhost:5173
+```
 
+---
 
-## Response Format
+## Current Limitations
 
-Each response includes:
+* Basic intent classification
+* Heuristic reranking
+* No document update/delete workflow
+* Single-user local deployment
+* Limited evaluation coverage
 
-- **answer** — grounded explanation  
-- **sources** — retrieved supporting chunks  
-- **study_hint** — suggestion on what to review next  
-
-Example:
-
-"Review these lecture notes to reinforce the concept: db_lecture_1, db_lecture_2"
-
-
-
-## Limitations
-
-- keyword-based document selection  
-- heuristic reranking  
-- no document update/delete  
-- limited frontend diagnostics  
+---
 
 ## Future Improvements
 
-- semantic document selection  
-- better reranking (cross-encoders)  
-- query rewriting  
-- streaming responses  
-- document management  
+* Cross-encoder reranking
+* Semantic document routing
+* Query rewriting
+* Retrieval evaluation dashboard
+* Multi-user support
+* Study-path generation
+* Streaming responses
 
+---
 
 ## License
 

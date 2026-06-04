@@ -210,5 +210,17 @@
     "title": "os_processes_threads_scheduling",
     "preview": "A process is an executing program with its own memory space, resources, and execution state. A thread is a smaller unit of execution within a process. Threads of the same process share memory and resources, which makes communication between them faster but also introduces synchronization issues. Con",
     "chunk_count": 3
+  },
+  {
+    "document_id": "os_process_vs_thread",
+    "title": "os_process_vs_thread",
+    "preview": "A process is an independent program in execution. Each process has its own memory space, resources, and execution state. A thread is the smallest unit of execution within a process. Threads that belong to the same process share the same memory space and resources, but each thread has its own stack a",
+    "chunk_count": 4
+  },
+  {
+    "document_id": "ml",
+    "title": "ml",
+    "preview": "Machine Learning (ML) is a branch of Artificial Intelligence (AI) where computers learn from data to make predictions or decisions without being explicitly programmed. Instead of following fixed rules, ML systems use algorithms that detect patterns in data, improve over time, and adapt to new inputs",
+    "chunk_count": 1
   }
 ]

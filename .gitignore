@@ -22,3 +22,14 @@ venv_old/
 # OS files
 .DS_Store
 Thumbs.db
+
+# generated indexes / local data
+data/whoosh_index/
+*.toc
+*.seg
+
+
+recall-frontend/node_modules/
+
+
+**/node_modules/
