@@ -1,5 +1,8 @@
-def build_answer_prompt(question: str, chunks: list[str], route: str) -> list[dict]:
-    context_block = "\n".join([f"[{i+1}] {t}" for i, t in enumerate(chunks)])
+def build_answer_prompt(question: str,sources: list,  route: str) -> list[dict]:
+    context_block = "\n".join([
+    f"[{i+1}] ({sources[i].document_id}) {sources[i].text}"
+    for i in range(len(sources))
+])
 
     if route == "concept_explanation":
         instruction = (
@@ -59,6 +62,8 @@ def build_answer_prompt(question: str, chunks: list[str], route: str) -> list[di
         "- If the answer is not supported by the context, say exactly: 'I don't know.'\n"
         "- Do NOT mention concepts that do not appear in the provided context.\n"
         "- Every major point in the answer must be directly supported by the notes.\n"
+        "- When referring to a source, explicitly mention the document name.\n"
+        "- Do NOT use vague phrases like 'the first document'.\n"
         "- Stay grounded in the notes.\n"
         "- Prefer phrases like 'From your notes', 'The material explains', or 'These notes describe' when helpful.\n"
         "- Do NOT mention chunk numbers like [1] or [2].\n"
