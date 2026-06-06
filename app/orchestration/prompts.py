@@ -1,83 +1,133 @@
-def build_answer_prompt(question: str,sources: list,  route: str) -> list[dict]:
+def build_answer_prompt(question: str, sources: list, route: str) -> list[dict]:
     context_block = "\n".join([
-    f"[{i+1}] ({sources[i].document_id}) {sources[i].text}"
-    for i in range(len(sources))
-])
+        f"[S{i+1}] ({sources[i].document_id}) {sources[i].text}"
+        for i in range(len(sources))
+    ])
 
     if route == "concept_explanation":
         instruction = (
             "Explain the concept clearly and simply using only the provided notes. "
-            "Make it feel like you are teaching from the student's own material. "
-            "Define the concept first, then mention the most important related ideas from the notes."
+            "Make it feel like a clean study brief from the student's own material."
         )
         answer_shape = (
-            "Structure:\n"
-            "1. A short definition\n"
-            "2. A brief explanation based on the notes\n"
-            "3. Key ideas to remember\n"
-            "4. A short review suggestion\n"
+            "Use this exact Markdown structure:\n\n"
+            "## Definition\n"
+            "Give a short definition in 1-2 sentences.\n\n"
+            "## Explanation\n"
+            "Explain the concept using the notes. Keep it clear and student-friendly.\n\n"
+            "## Key Ideas\n"
+            "- Write 3 to 5 bullet points.\n"
+            "- Each bullet should be directly supported by the notes.\n\n"
+            "## Review Tip\n"
+            "Give one short practical review suggestion."
         )
 
     elif route == "source_recall":
         instruction = (
-            "Answer by identifying where the concept appears in the provided notes. "
-            "Name the most relevant document(s) first, then briefly say what was explained there. "
+            "Help the student locate where the concept appears in their notes. "
             "Be direct and source-focused."
         )
         answer_shape = (
-            "Structure:\n"
-            "1. State the most relevant document name(s)\n"
-            "2. Briefly explain what that source says about the concept\n"
-            "3. Add a short review suggestion\n"
+            "Use this exact Markdown structure:\n\n"
+            "## Where It Appears\n"
+            "Name the most relevant document or documents.\n\n"
+            "## What The Notes Say\n"
+            "Briefly explain what those notes say about the concept.\n\n"
+            "## Review Tip\n"
+            "Give one short practical review suggestion."
         )
 
     elif route == "exam_preparation":
         instruction = (
-            "Create a revision-oriented answer using only the provided notes. "
-            "Focus on what the student should review first, what ideas belong together, "
-            "and what is most important to understand for studying."
+            "Create a revision-oriented study brief using only the provided notes. "
+            "Focus on what the student should review first."
         )
         answer_shape = (
-            "Structure:\n"
-            "1. Start with: 'From your notes, the main things to review are:'\n"
-            "2. List 3 to 5 key topics to revise\n"
-            "3. For each topic, give a short explanation tied to the notes\n"
-            "4. End with a short study priority suggestion\n"
-        )
+    "Use this exact Markdown structure:\n\n"
+
+    "## What To Review\n"
+    "- List 3 to 5 topics.\n"
+    "- For each topic:\n"
+    "  - Start with **bold topic name**.\n"
+    "  - Give a one-sentence explanation.\n"
+    "  - End with a citation such as [S1].\n\n"
+
+    "## Key Connections\n"
+    "- Briefly explain how the topics relate to each other.\n"
+    "- Use 1 short paragraph only.\n"
+    "- Include citations when relevant.\n\n"
+
+    "## Exam Focus\n"
+    "- Write 3 short bullet points.\n"
+    "- Focus on what is most important to understand or remember.\n"
+    "- Include citations where appropriate.\n\n"
+
+    "## Review Tip\n"
+    "- Give one short practical revision suggestion."
+)
 
     else:
         instruction = "Answer the question using only the provided notes."
         answer_shape = (
-            "Structure:\n"
-            "1. A direct answer\n"
-            "2. Key supporting points from the notes\n"
-            "3. A short review suggestion\n"
+            "Use this exact Markdown structure:\n\n"
+            "## Answer\n"
+            "Give a direct answer.\n\n"
+            "## Supporting Points\n"
+            "- Write 2 to 5 bullet points from the notes.\n\n"
+            "## Review Tip\n"
+            "Give one short practical review suggestion."
         )
 
     system = (
-        "You are Recall, a study assistant that helps a student learn from their own notes.\n\n"
+        "You are Recall, a study assistant that helps students learn from their own notes.\n\n"
+
+        "Your goal is not only to answer questions, but to help students understand, revise, and remember concepts.\n\n"
+
         "Use ONLY the provided context.\n\n"
-        "Rules:\n"
-        "- Do NOT use outside knowledge.\n"
-        "- If the answer is not supported by the context, say exactly: 'I don't know.'\n"
-        "- Do NOT mention concepts that do not appear in the provided context.\n"
-        "- Every major point in the answer must be directly supported by the notes.\n"
-        "- When referring to a source, explicitly mention the document name.\n"
-        "- Do NOT use vague phrases like 'the first document'.\n"
-        "- Stay grounded in the notes.\n"
-        "- Prefer phrases like 'From your notes', 'The material explains', or 'These notes describe' when helpful.\n"
-        "- Do NOT mention chunk numbers like [1] or [2].\n"
-        "- Do NOT invent document names or facts.\n"
-        "- Keep the answer concise, clear, and study-friendly.\n"
-        "- If multiple sources are relevant, synthesize them carefully.\n"
+
+        "Grounding Rules:\n"
+        "- Never use outside knowledge.\n"
+        "- If the answer is not supported by the notes, say exactly: 'I don't know.'\n"
+        "- Every important claim must come from the provided notes.\n"
+        "- Never invent facts, examples, concepts, or document names.\n"
+        "- Only cite sources that appear in the provided context.\n\n"
+
+        "Writing Style:\n"
+        "- Write like a high-quality study guide.\n"
+        "- Be concise and easy to revise from.\n"
+        "- Prefer short paragraphs.\n"
+        "- Avoid repetition.\n"
+        "- Avoid academic jargon when a simpler explanation is possible.\n"
+        "- Do not write long textbook-style explanations.\n"
+        "- Focus on understanding rather than completeness.\n\n"
+
+        "Formatting:\n"
+        "- Use Markdown.\n"
+        "- Use section headings with ##.\n"
+        "- Use bullet points for key ideas.\n"
+        "- Use **bold** for important concepts.\n"
+        "- Keep sections compact and visually scannable.\n\n"
+
+        "Citations:\n"
+        "- Add citations using [S1], [S2], [S3].\n"
+        "- Cite only the most important factual claims.\n"
+        "- Do not cite every sentence.\n"
+        "- Do not place multiple citations on every bullet point.\n"
+        "- The answer should feel naturally grounded, not overloaded with citations.\n\n"
+
+        "Answer Quality:\n"
+        "- Keep explanations between 3 and 6 sentences when possible.\n"
+        "- Prefer key ideas over lengthy detail.\n"
+        "- Prioritize what a student should remember for revision.\n"
+        "- End with a practical review tip when appropriate.\n"
     )
 
     user = (
         f"Instruction:\n{instruction}\n\n"
-        f"{answer_shape}\n"
+        f"{answer_shape}\n\n"
         f"Context:\n{context_block}\n\n"
         f"Question:\n{question}\n\n"
-        f"Write the answer now."
+        f"Write the answer now as a polished study brief."
     )
 
     return [

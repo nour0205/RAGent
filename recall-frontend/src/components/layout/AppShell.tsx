@@ -1,124 +1,92 @@
 import type { ReactNode } from 'react';
-import { Brain, ChevronRight, Search, Sparkles, Upload, Database } from 'lucide-react';
+import { Search, Upload, Database } from 'lucide-react';
 import type { Page } from '../../types';
 import { cn } from '../../lib/utils';
+
+const recallMark = new URL('../../assets/recall-mark.png', import.meta.url).href;
 
 export default function AppShell({
   children,
   page,
   setPage,
-  backendUrl,
 }: {
   children: ReactNode;
   page: Page;
   setPage: (p: Page) => void;
-  backendUrl: string;
 }) {
   const nav = [
-    { key: 'ask', label: 'Ask Recall', icon: Search, tone: 'from-sky-100 via-white to-transparent' },
-    { key: 'ingest', label: 'Ingest Notes', icon: Upload, tone: 'from-violet-100 via-white to-transparent' },
-    { key: 'knowledge', label: 'Knowledge Base', icon: Database, tone: 'from-emerald-100 via-white to-transparent' },
+    { key: 'ask', label: 'Study Brief', desc: 'Ask + verify', icon: Search },
+    { key: 'ingest', label: 'Add Notes', desc: 'Paste material', icon: Upload },
+    { key: 'knowledge', label: 'Library', desc: 'Study sources', icon: Database },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(186,230,253,0.5),transparent_22%),radial-gradient(circle_at_top_right,rgba(233,213,255,0.4),transparent_24%),linear-gradient(180deg,#fbfdff_0%,#f7f9fc_45%,#f5f7fb_100%)] text-slate-900">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.28),rgba(248,250,252,0.78))]" />
-      </div>
-
+    <div className="min-h-screen text-[#0b0a12]">
       <div className="relative flex min-h-screen">
-        <aside className="hidden w-[290px] shrink-0 border-r border-slate-200/80 bg-white/65 backdrop-blur-2xl lg:flex lg:flex-col">
-          <div className="p-6">
-            <div className="rounded-3xl border border-white/90 bg-white/75 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 via-violet-100 to-fuchsia-100 shadow-sm">
-                  <Brain className="h-6 w-6 text-sky-700" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Study Memory</p>
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Recall</h1>
-                </div>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-slate-600">
-                A calm workspace for revising concepts, tracing sources, and preparing from your own notes.
-              </p>
-            </div>
-          </div>
-
-          <nav className="flex-1 space-y-2 px-4">
+        <aside className="hidden w-[220px] shrink-0 border-r border-[#eee7ef] bg-white/82 backdrop-blur-xl lg:flex lg:flex-col">
+          <div className="px-4 pt-5 pb-7">
             <button
               onClick={() => setPage('home')}
-              className={cn(
-                'group relative w-full overflow-hidden rounded-3xl border px-4 py-4 text-left transition-all',
-                page === 'home'
-                  ? 'border-slate-200 bg-white/90 shadow-[0_14px_40px_rgba(15,23,42,0.06)]'
-                  : 'border-transparent bg-white/45 hover:bg-white/72',
-              )}
+              className="group w-full rounded-[26px] border border-[#eee7ef] bg-white/95 px-3.5 py-3.5 text-left shadow-[0_16px_45px_rgba(55,38,62,0.055)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(55,38,62,0.075)]"
+              aria-label="Go to Recall home"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-100/80 to-transparent" />
-              <div className="relative flex items-center gap-3">
-                <div className="rounded-2xl bg-slate-100 p-2"><Sparkles className="h-5 w-5 text-slate-700" /></div>
-                <div>
-                  <p className="font-medium text-slate-900">Overview</p>
-                  <p className="text-sm text-slate-500">Launchpad and product flow</p>
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] bg-[#fff7fb] ring-1 ring-[#ead7e2]">
+                  <img
+                    src={recallMark}
+                    alt=""
+                    className="h-11 w-11 object-contain"
+                  />
                 </div>
+
+                <h1 className="text-[31px] font-extrabold leading-none tracking-[-0.065em] text-[#0b0a12]">
+                  Recall
+                </h1>
               </div>
             </button>
-
-            {nav.map((item) => {
-              const Icon = item.icon;
-              const active = page === item.key;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setPage(item.key)}
-                  className={cn(
-                    'group relative w-full overflow-hidden rounded-3xl border px-4 py-4 text-left transition-all',
-                    active
-                      ? 'border-slate-200 bg-white/92 shadow-[0_14px_40px_rgba(15,23,42,0.06)]'
-                      : 'border-transparent bg-white/45 hover:-translate-y-0.5 hover:bg-white/72',
-                  )}
-                >
-                  <div className={cn('absolute inset-0 bg-gradient-to-r opacity-100', item.tone)} />
-                  <div className="relative flex items-center gap-3">
-                    <div className="rounded-2xl bg-white/85 p-2 backdrop-blur-xl">
-                      <Icon className="h-5 w-5 text-slate-700" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900">{item.label}</p>
-                      <p className="truncate text-sm text-slate-500">Focused workspace</p>
-                    </div>
-                    <ChevronRight className="ml-auto h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="p-4">
-            <div className="rounded-[28px] border border-emerald-200/90 bg-white/75 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)] backdrop-blur-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">System Status</p>
-                  <p className="text-xs text-slate-500">Backend connection target</p>
-                </div>
-                <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  </span>
-                  Online Ready
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-3 py-3 text-xs text-slate-600">
-                {backendUrl}
-              </div>
-            </div>
           </div>
+
+          <nav className="flex-1 space-y-2 px-3">
+            {nav.map((item) => (
+              <NavButton
+                key={item.key}
+                active={page === item.key}
+                onClick={() => setPage(item.key)}
+                icon={item.icon}
+                label={item.label}
+                desc={item.desc}
+              />
+            ))}
+          </nav>
         </aside>
 
-        <main className="flex-1 overflow-hidden">{children}</main>
+        <main className="relative z-10 flex-1 overflow-hidden">{children}</main>
       </div>
     </div>
+  );
+}
+
+function NavButton({ active, onClick, icon: Icon, label, desc }: { active: boolean; onClick: () => void; icon: any; label: string; desc: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'group w-full rounded-[20px] border px-3.5 py-3 text-left transition-all',
+        active
+          ? 'border-[#e5d7e8] bg-[#fbf7fb] text-[#0b0a12] shadow-[0_14px_34px_rgba(55,38,62,0.06)]'
+          : 'border-transparent bg-transparent text-[#514858] hover:border-[#eee7ef] hover:bg-white',
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div className={cn('rounded-[15px] p-2 transition', active ? 'bg-white text-[#b85f8b]' : 'bg-[#fbf7fb] text-[#6f6878] group-hover:text-[#b85f8b]')}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-[#0b0a12]">{label}</p>
+          <p className="truncate text-sm text-[#7b7280]">{desc}</p>
+        </div>
+        
+      </div>
+    </button>
   );
 }

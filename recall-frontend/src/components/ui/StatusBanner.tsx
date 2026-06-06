@@ -4,9 +4,9 @@ import { cn } from '../../lib/utils';
 
 export default function StatusBanner({ tone, title, message }: { tone: StatusTone; title: string; message: string }) {
   const styles = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    warning: 'border-amber-200 bg-amber-50 text-amber-800',
-    info: 'border-sky-200 bg-sky-50 text-sky-800',
+    success: 'border-[#ead6e2] bg-[#fbf7fb] text-[#6f3d7b]',
+    warning: 'border-[#eadcc7] bg-[#fffaf4] text-[#7a4e2a]',
+    info: 'border-[#ead6e2] bg-[#fbf7fb] text-[#6f3d7b]',
   }[tone];
 
   const Icon = tone === 'success' ? CheckCircle2 : tone === 'warning' ? AlertTriangle : Clock3;

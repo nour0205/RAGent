@@ -11,11 +11,11 @@ import KnowledgePage from './pages/KnowledgePage';
 
 export default function App() {
   const [page, setPage] = useState<Page>('home');
-  const [backendUrl, setBackendUrl] = useState(getDefaultBackendUrl());
+  const backendUrl = getDefaultBackendUrl();
 
   return (
-    <AppShell page={page} setPage={setPage} backendUrl={backendUrl}>
-      <TopBar page={page} backendUrl={backendUrl} setBackendUrl={setBackendUrl} />
+    <AppShell page={page} setPage={setPage}>
+      <TopBar page={page} />
       <AnimatePresence mode="wait">
         {page === 'home' && <LandingPage key="home" setPage={setPage} />}
         {page === 'ask' && <AskPage key="ask" backendUrl={backendUrl} />}
